@@ -430,27 +430,35 @@ Kullanıcı açıkça onaylamadan:
 
 Geçici build/cache çıktıları repo ignore sınırında tutulur. Dirty worktree'de kullanıcı değişikliklerini koru.
 
+
 ## 18. Sprint dokümantasyonu
 
-`docs/implementation/CURRENT_SPRINT.md` yalnız aktif sprintin şunlarını içerir:
+`docs/implementation/CURRENT_SPRINT.md` yalnız aktif işin objective, exact deliverables, acceptance commands, non-goals ve blocker’larını içerir.
 
-- Objective.
-- Exact deliverables.
-- Acceptance tests/commands.
-- Non-goals.
-- Blockers ve hard stops.
+Dosya değiştiren **her kullanıcı promptu tamamlandığında** `docs/implementation/IMPLEMENTATION_DETAILS.md` güncellenir. Yeni bir rapor dosyası oluşturulmaz.
 
-Her sprint sonunda `docs/implementation/IMPLEMENTATION_DETAILS.md` tek sefer güncellenir:
+Her kayıt şunları içermelidir:
 
-- Sprint amacı ve outcome.
-- Değişen dosyalar ve önemli symbol/target'lar.
-- Gerçek çalışma akışı.
-- Gerçekten çalışan ve henüz olmayan davranışlar.
-- Testlerin ispatladıkları ve ispatlamadıkları.
-- Validation sonuçları.
-- Bilinen sınırlamalar ve sonraki sprint.
+- Promptun amacı ve sonucu: PASS / PARTIAL / BLOCKED.
+- Yapılanların açık teknik özeti.
+- Oluşturulan, değiştirilen ve silinen dosyaların listesi.
+- Önemli class, function, route, model, migration ve testlerin açıklaması.
+- Gerçek çalışma/data flow’u.
+- Çalışan ve henüz implement edilmemiş davranışlar.
+- Çalıştırılan validation/test komutları ve gerçek sonuçları.
+- Testlerin neyi ispatladığı ve neyi ispatlamadığı.
+- Bilinen hata, risk ve sınırlamalar.
+- MCP ve skill accountability.
 
-Full source code'u ledger'a kopyalama; path ve symbol ile referans ver. Küçük düzeltmeler için yeni dev rapor üretme. Kullanıcı istemedikçe üçüncü bir rapor dosyası oluşturma.
+Bu promptta oluşturulan veya değiştirilen her source, test, migration, config, contract ve script dosyasının **final tam içeriği**, dosya yolu başlık olarak yazılarak Markdown code block içinde `IMPLEMENTATION_DETAILS.md` dosyasına eklenir.
+
+Yalnız bu promptta değişen dosyaların source kodu eklenir; değişmeyen dosyalar tekrar kopyalanmaz. Binary, model, dataset, secret, generated output ve lockfile içerikleri kopyalanmaz. Silinen dosyalar yalnız path ve silinme nedeni ile belirtilir.
+
+Source code `...`, “omitted”, pseudo-code veya özet kullanılarak kısaltılamaz. Dosya çok büyükse değişen class/function bloklarının tam final içeriği ile ilgili diff eklenir ve eksik bırakılan kısım açıkça belirtilir.
+
+Hiçbir dosya değişmediyse `IMPLEMENTATION_DETAILS.md` güncellenmez.
+
+Bu dokümantasyon aynı promptun son adımıdır; ayrı bir report-only sprint veya üçüncü rapor dosyası oluşturulmaz.
 
 ## 19. Completion formatı
 
