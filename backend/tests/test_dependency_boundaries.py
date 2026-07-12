@@ -1,16 +1,9 @@
-"""Enforce the architecture import-direction rules for production source.
-
-Rules:
-- domain      -> must NOT import application, infrastructure, api
-- ports       -> must NOT import infrastructure
-- application -> must NOT import concrete infrastructure
-- api         -> must NOT import infrastructure, domain
-- config      -> no restriction (shared configuration constants)
-- infrastructure -> allowed to implement ports/api contracts; must NOT import api
-"""
+"""Enforce the architecture import-direction rules for production source."""
 
 import ast
 from pathlib import Path
+
+import pytest
 
 PACKAGE_ROOT = Path(__file__).resolve().parent.parent / "src" / "mergenvision"
 INTERNAL_PREFIX = "mergenvision"
@@ -18,11 +11,11 @@ INTERNAL_PREFIX = "mergenvision"
 LAYER_ORDER = ("domain", "ports", "application", "infrastructure", "api")
 
 FORBIDDEN = {
-    "domain": {"application", "infrastructure", "api"},
-    "ports": {"infrastructure"},
-    "application": {"infrastructure"},
+    "domain": {"application", "ports", "infrastructure", "api"},
+    "ports": {"application", "infrastructure", "api"},
+    "application": {"infrastructure", "api"},
     "api": {"infrastructure", "domain"},
-    "infrastructure": {"api"},
+    "infrastructure": {"application", "api"},
     "config": set(),
 }
 
@@ -46,10 +39,8 @@ def _resolve_import(module_file: Path, node: ast.Import | ast.ImportFrom) -> lis
             return results
         base = node.module
         if node.level:
-            # Compute the package context of the importing file.
             relative_to_pkg = module_file.relative_to(PACKAGE_ROOT)
             parts = list(relative_to_pkg.with_suffix("").parts)
-            # The file's own module path is e.g. mergenvision.domain.__init__
             module_parts = parts if parts[-1] != "__init__" else parts[:-1]
             base_parts = (
                 module_parts[: -(node.level - 1)] if node.level > 1 else module_parts
@@ -60,10 +51,9 @@ def _resolve_import(module_file: Path, node: ast.Import | ast.ImportFrom) -> lis
         else:
             resolved = base
         results.append(resolved)
-        # Also include imported submodules (e.g. from mergenvision import domain)
         for alias in node.names:
             if alias.name[0].isupper():
-                continue  # likely a class, not a package
+                continue
             results.append(f"{resolved}.{alias.name}")
     return results
 
@@ -80,33 +70,65 @@ def _file_to_module(file_path: Path) -> str:
     return f"{INTERNAL_PREFIX}." + ".".join(parts)
 
 
+def _collect_violations_for_file(file_path: Path, source: str | None = None) -> list[str]:
+    module_name = _file_to_module(file_path)
+    layer = _layer_from_module(module_name)
+    if layer is None:
+        return []
+    forbidden = FORBIDDEN.get(layer, set())
+    if not forbidden:
+        return []
+
+    src = source if source is not None else file_path.read_text(encoding="utf-8")
+    tree = ast.parse(src, filename=str(file_path))
+
+    violations: list[str] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import | ast.ImportFrom):
+            for imported in _resolve_import(file_path, node):
+                if not imported.startswith(INTERNAL_PREFIX):
+                    continue
+                imported_layer = _layer_from_module(imported)
+                if imported_layer in forbidden:
+                    violations.append(
+                        f"{module_name} ({layer}) imports {imported} ({imported_layer})"
+                    )
+    return violations
+
+
 def test_dependency_direction_rules():
     violations: list[str] = []
     for file_path in _production_files():
-        module_name = _file_to_module(file_path)
-        layer = _layer_from_module(module_name)
-        if layer is None:
-            continue
-        forbidden = FORBIDDEN.get(layer, set())
-        if not forbidden:
-            continue
-
-        source = file_path.read_text(encoding="utf-8")
-        tree = ast.parse(source, filename=str(file_path))
-
-        for node in ast.walk(tree):
-            if isinstance(node, (ast.Import, ast.ImportFrom)):
-                for imported in _resolve_import(file_path, node):
-                    if not imported.startswith(INTERNAL_PREFIX):
-                        continue
-                    imported_layer = _layer_from_module(imported)
-                    if imported_layer in forbidden:
-                        violations.append(
-                            f"{module_name} ({layer}) imports {imported} ({imported_layer})"
-                        )
+        violations.extend(_collect_violations_for_file(file_path))
 
     if violations:
         message = "Dependency direction violations found:\n" + "\n".join(
             f"  - {v}" for v in violations
         )
         raise AssertionError(message)
+
+
+@pytest.mark.parametrize(
+    ("layer", "forbidden_target"),
+    [
+        ("domain", "application"),
+        ("domain", "ports"),
+        ("domain", "infrastructure"),
+        ("ports", "application"),
+        ("ports", "infrastructure"),
+        ("application", "infrastructure"),
+        ("application", "api"),
+        ("infrastructure", "application"),
+        ("infrastructure", "api"),
+        ("api", "infrastructure"),
+        ("api", "domain"),
+    ],
+)
+def test_dependency_violations_are_detected(layer: str, forbidden_target: str):
+    synthetic_file = PACKAGE_ROOT / layer / "negative_test.py"
+    source = f"import mergenvision.{forbidden_target}\n"
+    violations = _collect_violations_for_file(synthetic_file, source)
+
+    assert len(violations) == 1
+    assert forbidden_target in violations[0]
+    assert layer in violations[0]

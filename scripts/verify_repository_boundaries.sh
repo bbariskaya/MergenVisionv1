@@ -83,6 +83,28 @@ else
 fi
 
 # -----------------------------------------------------------------------------
+# 1b. Frozen file SHA-256 integrity check.
+# -----------------------------------------------------------------------------
+announce "Checking frozen file SHA-256 hashes"
+if [[ -f "architecture/FROZEN_SHA256SUMS" ]]; then
+    if command -v sha256sum >/dev/null 2>&1; then
+        hash_failures=""
+        if ! hash_failures=$(sha256sum --check architecture/FROZEN_SHA256SUMS 2>&1 | grep -E ': FAILED' || true); then
+            : # grep returns non-zero when no matches; that's the success state
+        fi
+        if [[ -n "${hash_failures}" ]]; then
+            while IFS= read -r line; do
+                failures+=("hash mismatch: ${line}")
+            done <<< "${hash_failures}"
+        fi
+    else
+        failures+=("sha256sum not available; cannot verify frozen hashes")
+    fi
+else
+    failures+=("missing architecture/FROZEN_SHA256SUMS")
+fi
+
+# -----------------------------------------------------------------------------
 # 2. Forbidden runtime dependencies not in production source.
 # -----------------------------------------------------------------------------
 announce "Scanning production source for forbidden dependencies"

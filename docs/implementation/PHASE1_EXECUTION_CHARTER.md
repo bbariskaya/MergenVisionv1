@@ -22,7 +22,7 @@
 
 The following are frozen for Phase 1 until the Foundation Gate passes:
 
-- 8-table PostgreSQL ERD (Person, ContactInfo, PersonPhoto, FaceIdentity, FaceSample, IdentificationRequest, IdentificationQueryFace, AuditLog).
+- 8-table PostgreSQL ERD (person, face_identity, process_record, inference_profile, person_photo, face_sample, recognition_result, process_event).
 - MinIO owns all binary objects; PostgreSQL owns all structured metadata.
 - Qdrant owns only derived 512-D face vectors; it is rebuildable from PostgreSQL + MinIO.
 - UUIDv7 for primary identifiers where possible.
@@ -56,7 +56,7 @@ Bulk enrollment benchmark must support:
 
 ## Phase 1 / Phase 2 boundary
 
-Phase 1 is image-only, API-only, ingestion/identification/history. Phase 2 (video, live stream, DeepStream) may not start until Phase 1 passes Foundation, DB, API, model, and Docker gates.
+Phase 1 is an image-based face recognition product with a FastAPI backend, mandatory internal React UI, PostgreSQL, MinIO, and Qdrant. Phase 2 (video, live stream, DeepStream) may not start until Phase 1 passes Foundation, DB, API, model, and Docker gates.
 
 ## Forbidden tools / dependencies
 
