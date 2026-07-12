@@ -8,8 +8,9 @@ cd "${REPO_ROOT}"
 
 echo "==> Bootstrapping foundation environment"
 
-if [[ ! -d ".venv" ]]; then
-    python3 -m venv .venv
+if [[ ! -d ".venv" ]] || [[ ! -x ".venv/bin/python" ]]; then
+    echo "==> Creating/repairing local virtual environment"
+    python3 -m venv --clear --copies .venv
 fi
 
 .venv/bin/python -m pip install --upgrade pip

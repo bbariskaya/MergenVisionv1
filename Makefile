@@ -1,4 +1,4 @@
-.PHONY: bootstrap-foundation check-venv test-python ruff proto-syntax configure-native build-native test-native verify-boundaries frozen-hashes verify-foundation
+.PHONY: bootstrap-foundation check-venv test-python ruff proto-syntax configure-native build-native test-native verify-boundaries frozen-hashes verify-foundation test-db-unit test-db-integration verify-db verify-sprint-002
 
 PYTHON := .venv/bin/python
 PYTEST := $(PYTHON) -m pytest
@@ -62,6 +62,26 @@ verify-boundaries:
 frozen-hashes:
 	@echo "==> Verifying frozen file hashes"
 	@sha256sum --check architecture/FROZEN_SHA256SUMS
+
+# ---------------------------------------------------------------------------
+# Database sprint targets (Sprint 002 - real PostgreSQL)
+# ---------------------------------------------------------------------------
+
+test-db-unit: check-venv
+	@echo "==> Running DB/security/domain unit tests"
+	PYTHONPATH=backend/src $(PYTEST) backend/tests/unit -v
+
+test-db-integration:
+	@echo "==> Running real PostgreSQL integration tests"
+	@bash scripts/run_postgres_integration_tests.sh
+
+verify-db: ruff test-db-unit test-db-integration
+	@echo "==> Running mypy"
+	$(PYTHON) -m mypy backend/src
+	@echo "==> Database verification complete"
+
+verify-sprint-002: verify-foundation verify-db
+	@echo "==> Sprint 002 verification complete"
 
 # ---------------------------------------------------------------------------
 # Foundation gate: all of the above, in order, non-destructive

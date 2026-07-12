@@ -4,14 +4,17 @@ version = "0.1.0"
 description = "MergenVision Phase 1 photo-based person recognition backend"
 requires-python = ">=3.12"
 dependencies = [
-    # Phase 1 foundation sprint: no runtime dependencies.
-    # SQLAlchemy, Alembic, FastAPI, MinIO, Qdrant, and ML stack are
-    # intentionally omitted until their individual implementation sprints.
+    "sqlalchemy[asyncio]>=2.0.0,<3.0.0",
+    "alembic>=1.13.0,<2.0.0",
+    "asyncpg>=0.29.0,<0.32.0",
+    "cryptography>=42.0.0,<45.0.0",
+    "pydantic-settings>=2.0.0,<3.0.0",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=8,<9",
+    "pytest-asyncio>=0.23.0,<1.5.0",
     "ruff>=0.5,<0.8",
     "mypy>=1.11,<1.12",
 ]
@@ -48,3 +51,5 @@ ignore_missing_imports = true
 testpaths = ["tests"]
 pythonpath = ["src"]
 addopts = "-v"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"

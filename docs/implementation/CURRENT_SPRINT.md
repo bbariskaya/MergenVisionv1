@@ -1,16 +1,15 @@
-# MergenVision Phase 1 — Foundation Sprint 0–1
+# MergenVision Phase 1 — Sprint 002
 
-**Sprint name:** Foundation Sprint 0–1 — Repository skeleton + build/test harness
+**Sprint name:** PostgreSQL + Alembic + national-ID security + repository layer
 
 **Objective:**
-Create a controlled, architecture-faithful repository foundation that demonstrates clear Python/native/contract boundaries, enforces repository invariants through tests, and provides a working build/test harness. No production inference, database, API, or UI feature code is produced in this sprint.
+Dondurulmuş sekiz tabloluk Phase 1 ERD’yi gerçek çalışan SQLAlchemy 2 modelleri, Alembic migration, national-ID security boundary, repository port/adapter katmanı ve gerçek PostgreSQL integration testleriyle implement etmek.
 
 **Active repository:** `/home/user/Workspace/MergenVisionFinalVersion`
 
 **Frozen inputs (read-only):**
 - `requirements/phase1requirements.md`
 - `requirements/ProjectRequirements.md`
-- `requirements/phase2requirements.md`
 - `architecture/01-phase1-high-level-architecture.md`
 - `architecture/02-phase1-component-diagram.md`
 - `architecture/03-phase1-postgresql-erd.md`
@@ -24,144 +23,167 @@ Create a controlled, architecture-faithful repository foundation that demonstrat
 
 ## Exact files
 
-### Backend
+### Domain/ports
+- `backend/src/mergenvision/domain/enums.py`
+- `backend/src/mergenvision/domain/errors.py`
+- `backend/src/mergenvision/domain/ids.py`
+- `backend/src/mergenvision/domain/entities.py`
+- `backend/src/mergenvision/ports/national_id.py`
+- `backend/src/mergenvision/ports/repositories.py`
+
+### Infrastructure
+- `backend/src/mergenvision/infrastructure/security/national_id.py`
+- `backend/src/mergenvision/infrastructure/database/base.py`
+- `backend/src/mergenvision/infrastructure/database/models.py`
+- `backend/src/mergenvision/infrastructure/database/mappers.py`
+- `backend/src/mergenvision/infrastructure/database/session.py`
+- `backend/src/mergenvision/infrastructure/database/repositories.py`
+
+### Config/migrations
+- `backend/src/mergenvision/config/settings.py`
+- `backend/alembic.ini`
+- `backend/alembic/env.py`
+- `backend/alembic/script.py.mako`
+- `backend/alembic/versions/0001_phase1_schema.py`
+
+### Tests
+- `backend/tests/unit/test_uuid7.py`
+- `backend/tests/unit/test_national_id_protection.py`
+- `backend/tests/unit/test_domain_entities.py`
+- `backend/tests/unit/test_database_metadata_contract.py`
+- `backend/tests/integration/conftest.py`
+- `backend/tests/integration/test_alembic_postgres.py`
+- `backend/tests/integration/test_postgres_constraints.py`
+- `backend/tests/integration/test_postgres_repositories.py`
+
+### Build/scripts
+- `scripts/run_postgres_integration_tests.sh`
+- `scripts/bootstrap_foundation.sh`
+- `Makefile`
 - `backend/pyproject.toml`
-- `backend/src/mergenvision/__init__.py`
-- `backend/src/mergenvision/api/__init__.py`
-- `backend/src/mergenvision/application/__init__.py`
-- `backend/src/mergenvision/domain/__init__.py`
-- `backend/src/mergenvision/ports/__init__.py`
-- `backend/src/mergenvision/infrastructure/__init__.py`
-- `backend/src/mergenvision/config/__init__.py`
-- `backend/tests/test_package_smoke.py`
-- `backend/tests/test_dependency_boundaries.py`
-- `backend/tests/test_forbidden_runtime_dependencies.py`
-
-### Native
-- `native/CMakeLists.txt`
-- `native/include/mergenvision/face_core/version.hpp`
-- `native/src/version.cpp`
-- `native/apps/runtime_server/README.md`
-- `native/tests/version_smoke.cpp`
-
-### Contracts
-- `contracts/face_inference/v1/README.md`
-- `contracts/face_inference/v1/face_inference.proto`
-
-### Frontend boundary
-- `frontend/README.md`
 
 ### Docs
-- `docs/implementation/PHASE1_EXECUTION_CHARTER.md`
-- `docs/implementation/CURRENT_SPRINT.md`
 - `docs/implementation/REFERENCE_DECISION_LOG.md`
-- `docs/benchmarks/BULK_ENROLLMENT_BENCHMARK_SPEC.md`
-
-### Root / scripts
-- `.editorconfig`
-- `.gitignore`
-- `Makefile`
-- `scripts/verify_repository_boundaries.sh`
+- `docs/implementation/IMPLEMENTATION_DETAILS.md`
 
 ---
 
-## Exact tests
+## Exact deliverables
 
-1. `backend/tests/test_package_smoke.py` — import package, version check, subpackage imports.
-2. `backend/tests/test_dependency_boundaries.py` — AST import scan enforcing dependency direction.
-3. `backend/tests/test_forbidden_runtime_dependencies.py` — forbidden production imports scan.
-4. `native/tests/version_smoke.cpp` — links to native library, checks version/ABI constants.
-5. `scripts/verify_repository_boundaries.sh` — shell-level boundary and artifact checks.
+1. UUIDv7 generator (`domain/ids.py`) with version verification tests.
+2. `NationalIdProtector` port + `AesGcmNationalIdProtector` adapter:
+   - NFKC + trim normalization.
+   - AES-256-GCM authenticated encryption with random nonce.
+   - Secret-keyed HMAC-SHA256 lookup hash.
+   - Masking (last four digits, full mask for ≤4 chars).
+   - Fail-closed key validation.
+   - No raw national ID in repr/log/error/DB.
+3. Domain entities + status value constants for eight tables.
+4. SQLAlchemy 2 typed declarative ORM models for eight frozen tables with all constraints/indexes/checks.
+5. Alembic async migration (initial, upgrade/downgrade/re-upgrade safe).
+6. Settings (`MERGENVISION_DATABASE_URL`, national ID key env vars).
+7. Database session factory (`AsyncSession`, `expire_on_commit=False`).
+8. Eight concrete PostgreSQL repositories implementing the port contract.
+9. Repository transaction ownership: caller commits/rolls back; repository only flushes.
+10. Conflict/constraint errors mapped to sanitized domain errors.
+11. Real PostgreSQL integration test harness (Docker if no test URL is provided).
 
 ---
 
-## Exact validation commands
+## Test-first plan
+
+1. `test_uuid7.py` — fail due to missing `new_uuid7`, then implement.
+2. `test_national_id_protection.py` — fail due to missing protector, then implement.
+3. `test_domain_entities.py` — fail due to missing entities/constants, then implement.
+4. `test_database_metadata_contract.py` — fail due to missing models, then implement.
+5. Integration tests — fail due to missing migration/session/repositories, then implement.
+6. After each green step run unit tests.
+7. After all code complete run full integration harness.
+
+---
+
+## Real PostgreSQL validation plan
+
+- `make test-db-unit` runs unit tests.
+- `make test-db-integration` runs `scripts/run_postgres_integration_tests.sh`.
+- If `MERGENVISION_TEST_DATABASE_URL` is set, use it.
+- Otherwise start an ephemeral `postgres:16-alpine` container on a free localhost port.
+- Run Alembic `upgrade head`, execute integration tests, then `downgrade base` + `upgrade head`.
+- Container is stopped/trapped at the end; only the container started by this script is touched.
+- No named volume; no `docker compose down`/`prune`/volume rm.
+
+---
+
+## Acceptance commands
 
 ```bash
 cd /home/user/Workspace/MergenVisionFinalVersion
+make bootstrap-foundation
 make verify-foundation
-```
-
-`verify-foundation` runs, in order:
-
-```bash
-make test-python          # compileall + pytest backend/tests
-make configure-native     # cmake -S native -B build/native
-make build-native         # cmake --build build/native --parallel
-make test-native          # ctest --test-dir build/native --output-on-failure
-make verify-boundaries    # bash scripts/verify_repository_boundaries.sh
-```
-
-Manual equivalents:
-
-```bash
-python3 -m compileall backend/src
-PYTHONPATH=backend/src python3 -m pytest backend/tests -v
-
-cmake -S native -B build/native
-cmake --build build/native --parallel
-ctest --test-dir build/native --output-on-failure
-
+make test-db-unit
+make test-db-integration
+make verify-db
+make verify-sprint-002
+.venv/bin/python -m ruff check backend/src backend/tests
+.venv/bin/python -m mypy backend/src
 bash scripts/verify_repository_boundaries.sh
-
-git status --short
-git diff --stat
-git diff --name-only
+sha256sum --check architecture/FROZEN_SHA256SUMS
 ```
 
 ---
 
 ## Non-goals
 
-- Real face detection / ArcFace / model download / TensorRT engine build.
-- CUDA kernel / nvJPEG implementation.
-- PostgreSQL migration / SQLAlchemy model / Alembic.
-- MinIO / Qdrant resource creation.
-- REST endpoint implementation.
-- React screen implementation.
-- Docker / Docker Compose.
-- Bulk worker implementation.
-- Dataset scanning or import.
-- LFW / VGGFace2 benchmark execution.
-- Phase 2 video implementation.
-- Oracle connection.
-- `AGENTS.md`.
+- FastAPI app/endpoint/router/schema.
+- MinIO or Qdrant client/adapter.
+- ML model download / RetinaFace / ArcFace / TensorRT / CUDA kernel.
+- Native runtime server.
+- Bulk enrollment worker.
+- React/Vite UI.
+- Docker Compose / Dockerfile.
+- Oracle adapter.
+- Phase 2 video/live-stream/tracker/object-detection.
+- Authentication platform.
+- Generic base repository framework.
+- New business table or ERD change.
+- Frozen architecture/requirements file change.
 - Git add / commit / push.
 
 ---
 
-## Done definition
+## Hard stops
 
-`FOUNDATION_GATE=PASS` only if:
-
-1. All files listed above exist with real content.
-2. `python3 -m compileall backend/src` succeeds.
-3. `python3 -m pytest backend/tests -v` passes (pytest installed or blocker reported).
-4. `cmake configure/build` succeeds.
-5. `ctest` passes.
-6. `bash scripts/verify_repository_boundaries.sh` returns 0.
-7. Frozen architecture/requirements files are unchanged.
-8. No fake production inference classes, no ML model, no DB implementation.
-9. No unrelated files created.
-
-If pytest cannot be installed without system/global pip, report `FOUNDATION_GATE=PARTIAL` with the exact blocker.
+- Frozen ERD değişikliği yapma.
+- Raw national ID’yi log/response/MinIO key/Qdrant payload’a yazma.
+- SQLite veya mock DB ile PostgreSQL integration kanıtı yerine geçirme.
+- Repository kendi başına commit yapma.
+- PostgreSQL native ENUM ekleme.
+- Geniş cascade delete koyma.
+- Image binary / embedding’i PostgreSQL’e yazma.
+- Yeni tablo ekleme.
 
 ---
 
-## Known blockers
+## Definition of done
 
-- (resolved) `pytest` was not available system-wide; a local `.venv` was created in the repo root and `pytest` was installed via pip.
-- No other blockers.
+`SPRINT_002_DB_GATE=PASS` only if:
 
+1. Eight SQLAlchemy model files exist for the frozen tables.
+2. Initial Alembic migration creates eight business tables + `alembic_version`.
+3. Upgrade/downgrade/re-upgrade pass on real PostgreSQL.
+4. Required constraints/indexes/checks verified by PostgreSQL introspection.
+5. UUIDv7 generator produces `uuid.version == 7`.
+6. National ID AES-GCM + HMAC + masking boundary works and raw ID never appears in DB/log/error.
+7. Eight repository port/implementation pairs exist.
+8. Repositories do not commit themselves.
+9. Unit tests pass.
+10. Real PostgreSQL integration tests pass.
+11. Foundation regression (`make verify-foundation`) passes.
+12. Ruff passes.
+13. Mypy passes or exact typed blocker is reported as `PARTIAL`.
+14. Frozen hashes unchanged.
+15. `AGENTS.md` unchanged.
+16. `IMPLEMENTATION_DETAILS.md` updated.
+17. No git operations performed.
 
----
-
-## Next sprint
-
-**PostgreSQL + Alembic implementation sprint**
-
-After user review and `FOUNDATION_GATE` PASS/PARTIAL acceptance:
-- Implement SQLAlchemy 2 domain models for the 8 frozen ERD tables.
-- Create Alembic migrations with constraints and indexes.
-- Add repositories and integration tests against PostgreSQL.
-- Implement national ID encryption/HMAC/masking boundary.
+If real PostgreSQL testing is skipped: `SPRINT_002_DB_GATE=PARTIAL`.
