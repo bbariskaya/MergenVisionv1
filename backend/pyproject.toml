@@ -1,0 +1,50 @@
+[project]
+name = "mergenvision-backend"
+version = "0.1.0"
+description = "MergenVision Phase 1 photo-based person recognition backend"
+requires-python = ">=3.12"
+dependencies = [
+    # Phase 1 foundation sprint: no runtime dependencies.
+    # SQLAlchemy, Alembic, FastAPI, MinIO, Qdrant, and ML stack are
+    # intentionally omitted until their individual implementation sprints.
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8,<9",
+    "ruff>=0.5,<0.8",
+    "mypy>=1.11,<1.12",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src/"]
+include = ["mergenvision*"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+exclude = [".venv", "build", "dist"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "C4", "SIM"]
+ignore = ["E501", "B008"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_return_any = true
+warn_unused_ignores = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-v"

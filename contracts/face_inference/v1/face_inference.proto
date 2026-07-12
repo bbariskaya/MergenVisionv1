@@ -1,0 +1,102 @@
+syntax = "proto3";
+
+package mergenvision.face_inference.v1;
+
+// Internal contract between the Python control plane and the native GPU worker.
+// This contract never exposes PII, national IDs, or database entities.
+
+// Operation mode selects processing behavior while keeping the same raw image input.
+enum OperationMode {
+  OPERATION_MODE_UNSPECIFIED = 0;
+  OPERATION_MODE_ENROLLMENT = 1;
+  OPERATION_MODE_IDENTIFICATION = 2;
+  OPERATION_MODE_BENCHMARK = 3;
+}
+
+// A single 2-D point in original image coordinates.
+message Point {
+  float x = 1;
+  float y = 2;
+}
+
+// Bounding box in original image coordinates.
+message BoundingBox {
+  float x = 1;
+  float y = 2;
+  float width = 3;
+  float height = 4;
+}
+
+// Per-face detection/alignment/embedding result.
+// Landmark order is defined by the alignment contract; for ArcFace it is:
+//   1. left eye
+//   2. right eye
+//   3. nose
+//   4. left mouth corner
+//   5. right mouth corner
+message FaceResult {
+  BoundingBox bounding_box = 1;
+
+  // Ordered five facial landmarks.
+  repeated Point landmarks = 2;
+
+  // Detector confidence.
+  float detection_confidence = 3;
+
+  // Quality score/state produced by the native quality gate.
+  float quality_score = 4;
+  string quality_state = 5;
+
+  // L2-normalized 512-D ArcFace-style embedding.
+  // This is an internal result used by the application service for known/unknown scoring.
+  repeated float embedding = 6;
+}
+
+message InferImageRequest {
+  string request_id = 1;
+  OperationMode operation_mode = 2;
+
+  // Verified image bytes. The native runtime trusts the caller to validate MIME/format.
+  bytes encoded_image = 3;
+
+  // Verified MIME type, e.g. "image/jpeg" or "image/png".
+  string verified_mime_type = 4;
+
+  // Provenance: which inference profile / model artefact contract to use.
+  string inference_profile_id = 5;
+}
+
+message InferImageResponse {
+  string request_id = 1;
+
+  // Runtime provenance echoed back for traceability.
+  string inference_profile_id = 2;
+  string runtime_version = 3;
+
+  // Original image dimensions.
+  uint32 image_width = 4;
+  uint32 image_height = 5;
+
+  // Detection/alignment/embedding results for every accepted face.
+  repeated FaceResult faces = 6;
+
+  // Sanitized error code for catastrophic failures (e.g. decode failure, model unavailable).
+  // Empty when the call succeeds.
+  string error_code = 7;
+  string error_message = 8;
+}
+
+message HealthRequest {
+  string request_id = 1;
+}
+
+message HealthResponse {
+  string request_id = 1;
+  bool ready = 2;
+  string runtime_version = 3;
+}
+
+service FaceInference {
+  rpc Health(HealthRequest) returns (HealthResponse);
+  rpc InferImage(InferImageRequest) returns (InferImageResponse);
+}

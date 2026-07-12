@@ -1,0 +1,81 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+*.egg-info/
+dist/
+build/
+
+# Python tools
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.cover
+
+# CMake / native
+build/
+cmake-build-*/
+CMakeCache.txt
+CMakeFiles/
+Makefile.cmake
+cmake_install.cmake
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+
+# Node / frontend
+node_modules/
+frontend/dist/
+frontend/.vite/
+*.log
+
+# Environment and secrets
+.env
+.env.local
+.env.*.local
+secrets/
+*.key
+*.pem
+*.p12
+*.pfx
+
+# Datasets and model artefacts
+datasets/
+models/
+*.onnx
+*.trt
+*.engine
+*.pth
+*.pt
+*.ckpt
+*.safetensors
+*.h5
+*.pb
+*.tflite
+
+# Benchmark raw output
+benchmark_outputs/
+*.csv
+*.parquet
+
+# IDE / tool caches
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+*.code-workspace
+
+# OS
+Thumbs.db
