@@ -371,6 +371,32 @@ class PostgresPersonPhotoRepository(PersonPhotoRepository):
         row = result.scalar_one_or_none()
         return mappers.map_person_photo(row) if row else None
 
+    async def get_by_id_any_status(self, photo_id: UUID) -> PersonPhoto | None:
+        stmt = select(orm.PersonPhoto).where(orm.PersonPhoto.photo_id == photo_id)
+        result = await self._session.execute(stmt)
+        row = result.scalar_one_or_none()
+        return mappers.map_person_photo(row) if row else None
+
+    async def get_by_person_id_and_sha256(
+        self,
+        person_id: UUID,
+        content_sha256: str,
+    ) -> PersonPhoto | None:
+        stmt = (
+            select(orm.PersonPhoto)
+            .where(orm.PersonPhoto.person_id == person_id)
+            .where(orm.PersonPhoto.content_sha256 == content_sha256)
+        )
+        result = await self._session.execute(stmt)
+        row = result.scalar_one_or_none()
+        return mappers.map_person_photo(row) if row else None
+
+    async def get_by_object_key(self, object_key: str) -> PersonPhoto | None:
+        stmt = select(orm.PersonPhoto).where(orm.PersonPhoto.object_key == object_key)
+        result = await self._session.execute(stmt)
+        row = result.scalar_one_or_none()
+        return mappers.map_person_photo(row) if row else None
+
     async def list_by_person(self, person_id: UUID, *, limit: int, offset: int) -> list[PersonPhoto]:
         stmt = (
             select(orm.PersonPhoto)
@@ -472,6 +498,26 @@ class PostgresFaceSampleRepository(FaceSampleRepository):
         row = result.scalar_one_or_none()
         return mappers.map_face_sample(row) if row else None
 
+    async def get_by_id_any_status(self, sample_id: UUID) -> FaceSample | None:
+        stmt = select(orm.FaceSample).where(orm.FaceSample.sample_id == sample_id)
+        result = await self._session.execute(stmt)
+        row = result.scalar_one_or_none()
+        return mappers.map_face_sample(row) if row else None
+
+    async def get_by_photo_id_and_profile_id(
+        self,
+        photo_id: UUID,
+        inference_profile_id: UUID,
+    ) -> FaceSample | None:
+        stmt = (
+            select(orm.FaceSample)
+            .where(orm.FaceSample.photo_id == photo_id)
+            .where(orm.FaceSample.inference_profile_id == inference_profile_id)
+        )
+        result = await self._session.execute(stmt)
+        row = result.scalar_one_or_none()
+        return mappers.map_face_sample(row) if row else None
+
     async def list_active_by_identity(
         self,
         face_identity_id: UUID,
@@ -483,6 +529,23 @@ class PostgresFaceSampleRepository(FaceSampleRepository):
             select(orm.FaceSample)
             .where(orm.FaceSample.face_identity_id == face_identity_id)
             .where(orm.FaceSample.status == SampleStatus.ACTIVE)
+            .order_by(orm.FaceSample.created_at.desc())
+            .offset(offset)
+            .limit(limit)
+        )
+        result = await self._session.execute(stmt)
+        return [mappers.map_face_sample(row) for row in result.scalars().all()]
+
+    async def list_by_photo_id_any_status(
+        self,
+        photo_id: UUID,
+        *,
+        limit: int,
+        offset: int,
+    ) -> list[FaceSample]:
+        stmt = (
+            select(orm.FaceSample)
+            .where(orm.FaceSample.photo_id == photo_id)
             .order_by(orm.FaceSample.created_at.desc())
             .offset(offset)
             .limit(limit)

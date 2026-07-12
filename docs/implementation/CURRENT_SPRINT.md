@@ -1,9 +1,9 @@
-# MergenVision Phase 1 — Sprint 002
+# MergenVision Phase 1 — Sprint 003
 
-**Sprint name:** PostgreSQL + Alembic + national-ID security + repository layer
+**Sprint name:** MinIO + Qdrant Adapters + Cross-Store Lifecycle/Reconciliation
 
 **Objective:**
-Dondurulmuş sekiz tabloluk Phase 1 ERD’yi gerçek çalışan SQLAlchemy 2 modelleri, Alembic migration, national-ID security boundary, repository port/adapter katmanı ve gerçek PostgreSQL integration testleriyle implement etmek.
+Frozen Phase 1 storage kararlarına göre MinIO object storage adapter’ı, Qdrant vector index adapter’ı, cross-store idempotent enrollment persistence servisi ve targeted reconciliation servisini implement etmek. Bu sprint tam enrollment API’si veya ML inference sprinti değildir; servis zaten doğrulanmış fotoğraf binary’si ve normalize edilmiş 512-D embedding kabul eder.
 
 **Active repository:** `/home/user/Workspace/MergenVisionFinalVersion`
 
@@ -21,46 +21,54 @@ Dondurulmuş sekiz tabloluk Phase 1 ERD’yi gerçek çalışan SQLAlchemy 2 mod
 
 ---
 
-## Exact files
+## Exact deliverables
 
-### Domain/ports
-- `backend/src/mergenvision/domain/enums.py`
-- `backend/src/mergenvision/domain/errors.py`
-- `backend/src/mergenvision/domain/ids.py`
-- `backend/src/mergenvision/domain/entities.py`
-- `backend/src/mergenvision/ports/national_id.py`
-- `backend/src/mergenvision/ports/repositories.py`
+### Ports
+- `backend/src/mergenvision/ports/object_storage.py`
+- `backend/src/mergenvision/ports/vector_index.py`
+- `backend/src/mergenvision/ports/unit_of_work.py`
 
-### Infrastructure
-- `backend/src/mergenvision/infrastructure/security/national_id.py`
-- `backend/src/mergenvision/infrastructure/database/base.py`
-- `backend/src/mergenvision/infrastructure/database/models.py`
-- `backend/src/mergenvision/infrastructure/database/mappers.py`
-- `backend/src/mergenvision/infrastructure/database/session.py`
-- `backend/src/mergenvision/infrastructure/database/repositories.py`
+### Application services
+- `backend/src/mergenvision/application/enrollment_persistence.py`
+- `backend/src/mergenvision/application/storage_reconciliation.py`
 
-### Config/migrations
-- `backend/src/mergenvision/config/settings.py`
-- `backend/alembic.ini`
-- `backend/alembic/env.py`
-- `backend/alembic/script.py.mako`
-- `backend/alembic/versions/0001_phase1_schema.py`
+### Infrastructure adapters
+- `backend/src/mergenvision/infrastructure/object_storage/__init__.py`
+- `backend/src/mergenvision/infrastructure/object_storage/minio_adapter.py`
+- `backend/src/mergenvision/infrastructure/vector_index/__init__.py`
+- `backend/src/mergenvision/infrastructure/vector_index/qdrant_adapter.py`
+- `backend/src/mergenvision/infrastructure/database/unit_of_work.py`
+
+### Config/helpers
+- `backend/src/mergenvision/config/storage.py`
+- `backend/src/mergenvision/domain/storage_keys.py`
+
+### Repository extensions
+- Targeted any-status read metotları:
+  - `PersonPhotoRepository.get_by_id_any_status`
+  - `PersonPhotoRepository.get_by_person_id_and_sha256`
+  - `PersonPhotoRepository.get_by_object_key`
+  - `FaceSampleRepository.get_by_id_any_status`
+  - `FaceSampleRepository.get_by_photo_id_and_profile_id`
 
 ### Tests
-- `backend/tests/unit/test_uuid7.py`
-- `backend/tests/unit/test_national_id_protection.py`
-- `backend/tests/unit/test_domain_entities.py`
-- `backend/tests/unit/test_database_metadata_contract.py`
-- `backend/tests/integration/conftest.py`
-- `backend/tests/integration/test_alembic_postgres.py`
-- `backend/tests/integration/test_postgres_constraints.py`
-- `backend/tests/integration/test_postgres_repositories.py`
+- `backend/tests/unit/test_storage_keys.py`
+- `backend/tests/unit/test_object_storage_contract.py`
+- `backend/tests/unit/test_vector_index_contract.py`
+- `backend/tests/unit/test_enrollment_persistence.py`
+- `backend/tests/unit/test_storage_reconciliation.py`
+- `backend/tests/unit/test_storage_settings.py`
+- `backend/tests/unit/test_external_storage_test_safety.py`
+- `backend/tests/integration/test_minio_adapter.py`
+- `backend/tests/integration/test_qdrant_adapter.py`
+- `backend/tests/integration/test_cross_store_persistence.py`
+- `backend/tests/integration/test_cross_store_reconciliation.py`
 
-### Build/scripts
-- `scripts/run_postgres_integration_tests.sh`
-- `scripts/bootstrap_foundation.sh`
-- `Makefile`
-- `backend/pyproject.toml`
+### Test harness/build
+- `scripts/check_external_storage_test_safety.py`
+- `scripts/run_storage_integration_tests.sh`
+- `Makefile` (storage target’ları)
+- `backend/pyproject.toml` (MinIO + Qdrant bağımlılıkları)
 
 ### Docs
 - `docs/implementation/REFERENCE_DECISION_LOG.md`
@@ -68,49 +76,61 @@ Dondurulmuş sekiz tabloluk Phase 1 ERD’yi gerçek çalışan SQLAlchemy 2 mod
 
 ---
 
-## Exact deliverables
+## Exact deliverables (details)
 
-1. UUIDv7 generator (`domain/ids.py`) with version verification tests.
-2. `NationalIdProtector` port + `AesGcmNationalIdProtector` adapter:
-   - NFKC + trim normalization.
-   - AES-256-GCM authenticated encryption with random nonce.
-   - Secret-keyed HMAC-SHA256 lookup hash.
-   - Masking (last four digits, full mask for ≤4 chars).
-   - Fail-closed key validation.
-   - No raw national ID in repr/log/error/DB.
-3. Domain entities + status value constants for eight tables.
-4. SQLAlchemy 2 typed declarative ORM models for eight frozen tables with all constraints/indexes/checks.
-5. Alembic async migration (initial, upgrade/downgrade/re-upgrade safe).
-6. Settings (`MERGENVISION_DATABASE_URL`, national ID key env vars).
-7. Database session factory (`AsyncSession`, `expire_on_commit=False`).
-8. Eight concrete PostgreSQL repositories implementing the port contract.
-9. Repository transaction ownership: caller commits/rolls back; repository only flushes.
-10. Conflict/constraint errors mapped to sanitized domain errors.
-11. Real PostgreSQL integration test harness (Docker if no test URL is provided).
+1. PII-free deterministic object key helper (person photo + recognition input).
+2. Object storage port + `MinioObjectStorageAdapter`:
+   - idempotent bucket creation,
+   - `put_if_absent_or_same`, `stat`, `get_bytes`, `delete_if_matches`,
+   - sync SDK’nın bounded async offload ile sarılması,
+   - metadata allowlist, content conflict detection.
+3. Vector index port + `QdrantVectorIndexAdapter`:
+   - collection creation with frozen 512-D cosine contract + HNSW baseline,
+   - payload index creation,
+   - vector validation (512-D, finite, nonzero, L2-normalized),
+   - bounded batch upsert with `wait=true`,
+   - filtered search (`active=true`, `inferenceProfileId`),
+   - `set_active` and explicit `delete_points`.
+4. PostgreSQL `UnitOfWork` port + `PostgresUnitOfWork` adapter.
+5. Repository any-status extension methods for cross-store idempotency and reconciliation.
+6. `EnrollmentPersistenceService` cross-store workflow:
+   - canonical identity resolution,
+   - MinIO object persistence,
+   - PostgreSQL inactive staging,
+   - Qdrant upsert,
+   - PostgreSQL final activation,
+   - MinIO compensation on staging failure,
+   - Qdrant compensation on activation failure,
+   - idempotent retry.
+7. `StorageReconciliationService` targeted reconciliation of a bounded sample/photo list.
+8. Sanitized error hierarchy for storage and cross-store errors.
+9. Storage config classes (`MinioSettings`, `QdrantSettings`) with secret redaction.
+10. Real ephemeral container harness for PostgreSQL + MinIO + Qdrant integration tests.
 
 ---
 
 ## Test-first plan
 
-1. `test_uuid7.py` — fail due to missing `new_uuid7`, then implement.
-2. `test_national_id_protection.py` — fail due to missing protector, then implement.
-3. `test_domain_entities.py` — fail due to missing entities/constants, then implement.
-4. `test_database_metadata_contract.py` — fail due to missing models, then implement.
-5. Integration tests — fail due to missing migration/session/repositories, then implement.
-6. After each green step run unit tests.
-7. After all code complete run full integration harness.
+1. `test_storage_keys.py` — write keys before helper exists, then implement.
+2. `test_object_storage_contract.py` — fake MinIO adapter seam; fail then implement port + fake.
+3. `test_storage_settings.py` — fail then implement `MinioSettings`/`QdrantSettings`.
+4. `test_vector_index_contract.py` — fail then implement port + adapter contract.
+5. `test_enrollment_persistence.py` — inject fake object storage/vector index/UoW; fail then implement.
+6. `test_storage_reconciliation.py` — fake repositories/storage/vector index; fail then implement.
+7. `test_external_storage_test_safety.py` — fail then implement safety script.
+8. `test_minio_adapter.py` — real MinIO container.
+9. `test_qdrant_adapter.py` — real Qdrant container.
+10. `test_cross_store_persistence.py` / `test_cross_store_reconciliation.py` — real three-store harness.
 
 ---
 
-## Real PostgreSQL validation plan
+## Real service validation plan
 
-- `make test-db-unit` runs unit tests.
-- `make test-db-integration` runs `scripts/run_postgres_integration_tests.sh`.
-- If `MERGENVISION_TEST_DATABASE_URL` is set, use it.
-- Otherwise start an ephemeral `postgres:16-alpine` container on a free localhost port.
-- Run Alembic `upgrade head`, execute integration tests, then `downgrade base` + `upgrade head`.
-- Container is stopped/trapped at the end; only the container started by this script is touched.
-- No named volume; no `docker compose down`/`prune`/volume rm.
+- `make test-storage-unit` storage unit tests.
+- `make test-storage-integration` runs `scripts/run_storage_integration_tests.sh`.
+- Script starts ephemeral PostgreSQL (`postgres:16-alpine`), MinIO, Qdrant on random free ports, runs Alembic upgrade, runs storage integration tests, stops only its own containers.
+- Bucket/collection names use `test_` prefix or `_test` suffix.
+- External endpoint opt-in via env vars; destructive tests require explicit guard.
 
 ---
 
@@ -120,32 +140,37 @@ Dondurulmuş sekiz tabloluk Phase 1 ERD’yi gerçek çalışan SQLAlchemy 2 mod
 cd /home/user/Workspace/MergenVisionFinalVersion
 make bootstrap-foundation
 make verify-foundation
-make test-db-unit
-make test-db-integration
-make verify-db
 make verify-sprint-002
+make test-storage-unit
+make test-storage-integration
+make verify-storage
+make verify-sprint-003
 .venv/bin/python -m ruff check backend/src backend/tests
 .venv/bin/python -m mypy backend/src
 bash scripts/verify_repository_boundaries.sh
 sha256sum --check architecture/FROZEN_SHA256SUMS
+git diff --check
+git status --short
+git diff --stat
+git diff --name-only
 ```
 
 ---
 
 ## Non-goals
 
-- FastAPI app/endpoint/router/schema.
-- MinIO or Qdrant client/adapter.
-- ML model download / RetinaFace / ArcFace / TensorRT / CUDA kernel.
-- Native runtime server.
-- Bulk enrollment worker.
+- FastAPI route/endpoint/schema.
 - React/Vite UI.
-- Docker Compose / Dockerfile.
-- Oracle adapter.
-- Phase 2 video/live-stream/tracker/object-detection.
-- Authentication platform.
-- Generic base repository framework.
-- New business table or ERD change.
+- Face detection / RetinaFace / SCRFD / ArcFace / TensorRT / CUDA.
+- Model download veya engine build.
+- Dataset import.
+- Üç GPU worker / bulk enrollment runner.
+- Oracle adapter / video / RTSP / GStreamer / DeepStream.
+- Redis / Celery / Kafka / distributed saga framework / outbox tablosu.
+- Kubernetes / production Docker Compose.
+- Authentication / presigned URL endpoint.
+- Recognition business decision service.
+- New DB table/column/status/migration.
 - Frozen architecture/requirements file change.
 - Git add / commit / push.
 
@@ -153,37 +178,38 @@ sha256sum --check architecture/FROZEN_SHA256SUMS
 
 ## Hard stops
 
-- Frozen ERD değişikliği yapma.
-- Raw national ID’yi log/response/MinIO key/Qdrant payload’a yazma.
-- SQLite veya mock DB ile PostgreSQL integration kanıtı yerine geçirme.
-- Repository kendi başına commit yapma.
-- PostgreSQL native ENUM ekleme.
-- Geniş cascade delete koyma.
-- Image binary / embedding’i PostgreSQL’e yazma.
-- Yeni tablo ekleme.
+- Frozen ERD/schema/migration değişmez.
+- MinIO/Qdrant SDK import’u application/domain katmanına sızmaz.
+- Raw national ID, ad, soyad, original filename MinIO key/metadata veya Qdrant payload’a yazılmaz.
+- Embedding ve image binary PostgreSQL’e yazılmaz.
+- Collection recreate/delete on mismatch yapılmaz.
+- Filtersiz/broad vector delete yapılmaz.
+- Explicitly deactivated (`deleted_at IS NOT NULL`) sample/fotoğraf otomatik activate edilmez.
+- PostgreSQL transaction açıkken uzun MinIO/Qdrant çağrısı yapılmaz.
+- Secret/credential log/error/repr’da görünmez.
+- Mock-only test real integration PASS iddiası olarak sunulmaz.
 
 ---
 
 ## Definition of done
 
-`SPRINT_002_DB_GATE=PASS` only if:
+`SPRINT_003_STORAGE_GATE=PASS` only if:
 
-1. Eight SQLAlchemy model files exist for the frozen tables.
-2. Initial Alembic migration creates eight business tables + `alembic_version`.
-3. Upgrade/downgrade/re-upgrade pass on real PostgreSQL.
-4. Required constraints/indexes/checks verified by PostgreSQL introspection.
-5. UUIDv7 generator produces `uuid.version == 7`.
-6. National ID AES-GCM + HMAC + masking boundary works and raw ID never appears in DB/log/error.
-7. Eight repository port/implementation pairs exist.
-8. Repositories do not commit themselves.
-9. Unit tests pass.
-10. Real PostgreSQL integration tests pass.
-11. Foundation regression (`make verify-foundation`) passes.
-12. Ruff passes.
-13. Mypy passes or exact typed blocker is reported as `PARTIAL`.
-14. Frozen hashes unchanged.
-15. `AGENTS.md` unchanged.
-16. `IMPLEMENTATION_DETAILS.md` updated.
-17. No git operations performed.
+1. Object storage port + fake + real MinIO adapter geçer.
+2. Vector index port + real Qdrant adapter geçer.
+3. PostgreSQL + MinIO + Qdrant happy path cross-store integration geçer.
+4. Same-command retry duplicate photo/sample/Qdrant point üretmez.
+5. Qdrant mismatch collection’ı silmez/recreate etmez.
+6. MinIO content conflict sessiz overwrite etmez.
+7. Qdrant payload’ta ve MinIO metadata/key’de PII yoktur.
+8. Qdrant `active`/`inferenceProfileId` filtreleri gerçek search ile doğrulanır.
+9. Cross-store failure/compensation matrisi test edilir.
+10. Staged (`inactive`, `deleted_at IS NULL`) ile explicitly deleted (`deleted_at IS NOT NULL`) ayrımı doğrulanır.
+11. Reconciliation explicitly deleted kaydı yeniden activate etmez.
+12. Storage unit tests, integration tests, ruff, mypy, boundary, foundation ve Sprint 002 regression geçer.
+13. Frozen hashes unchanged.
+14. `AGENTS.md` unchanged.
+15. `IMPLEMENTATION_DETAILS.md` updated.
+16. No git operations performed.
 
-If real PostgreSQL testing is skipped: `SPRINT_002_DB_GATE=PARTIAL`.
+If real MinIO/Qdrant container testing cannot be run: `SPRINT_003_STORAGE_GATE=PARTIAL`.

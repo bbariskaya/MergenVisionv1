@@ -143,6 +143,22 @@ class PersonPhotoRepository(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    async def get_by_id_any_status(self, photo_id: UUID) -> PersonPhoto | None:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def get_by_person_id_and_sha256(
+        self,
+        person_id: UUID,
+        content_sha256: str,
+    ) -> PersonPhoto | None:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def get_by_object_key(self, object_key: str) -> PersonPhoto | None:
+        raise NotImplementedError
+
+    @abstractmethod
     async def list_by_person(self, person_id: UUID, *, limit: int, offset: int) -> list[PersonPhoto]:
         raise NotImplementedError
 
@@ -169,9 +185,31 @@ class FaceSampleRepository(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    async def get_by_id_any_status(self, sample_id: UUID) -> FaceSample | None:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def get_by_photo_id_and_profile_id(
+        self,
+        photo_id: UUID,
+        inference_profile_id: UUID,
+    ) -> FaceSample | None:
+        raise NotImplementedError
+
+    @abstractmethod
     async def list_active_by_identity(
         self,
         face_identity_id: UUID,
+        *,
+        limit: int,
+        offset: int,
+    ) -> list[FaceSample]:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def list_by_photo_id_any_status(
+        self,
+        photo_id: UUID,
         *,
         limit: int,
         offset: int,
